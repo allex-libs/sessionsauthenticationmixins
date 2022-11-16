@@ -1,6 +1,6 @@
 {
   "name": "allex_sessionsauthenticationmixinslib",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AllexJS mixins lib for a Sessions Authentication Strategy user",
   "main": "index.js",
   "scripts": {

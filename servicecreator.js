@@ -7,17 +7,45 @@ function createSessionsStrategyServiceMixin (execlib) {
     taskRegistry = execSuite.taskRegistry,
     qlib = lib.qlib;
 
+  function isOkAdditionalField (fld) {
+    if (!fld) {
+      console.log('There is no Session Additional Field');
+      return false;
+    }
+    if (!(lib.isString(fld.profileproperty) && fld.profileproperty)) {
+      console.log('Session Additional Field', fld, 'has no "profileproperty"');
+      return false;
+    }
+    if (!(lib.isString(fld.sessionproperty) && fld.sessionproperty)) {
+      console.log('Session Additional Field', fld, 'has no "sessionproperty"');
+      return false;
+    }
+    return true;
+  }
+  
+  function areOkAdditionalFields (flds) {
+    if (!lib.isArray(flds)) {
+      return [];
+    }
+    if (!flds.every(isOkAdditionalField)) {
+      return [];
+    }
+    return flds;
+  }
+
   function SessionsStrategyServiceMixin (prophash) {
     if (!lib.isFunction(this.findRemote)) {
       throw new lib.Error('REMOTESERVICELISTNER_MIXIN_NOT_IMPLEMENTED', this.constructor.name+' has to implement execSuite.RemoteServiceListenerServiceMixin');
     }
-    this.sessionsSinkName = prophash.sessionsDB;
+    this.sessionsSinkName = prophash.sessionsDB || prophash.strategies.sessions.sinkname;
     if (this.sessionsSinkName) {
       this.findRemote(this.sessionsSinkName, null, 'sessions');
     }
+    this.profileFields = areOkAdditionalFields(prophash.strategies.sessions.profile_fields);
   }
 
   SessionsStrategyServiceMixin.prototype.destroy = function () {
+    this.profileFields = null;
     this.sessionsSinkName = null;
   };
 
@@ -42,8 +70,21 @@ function createSessionsStrategyServiceMixin (execlib) {
     }
   };
 
+  function fielder (obj, res, fld) {
+    if (obj.profile) {
+      res[fld.sessionproperty] = obj.profile[fld.profileproperty];
+    }
+    return res;
+  }
   SessionsStrategyServiceMixin.prototype.produceAuthSessionOnSessionsSink = execSuite.dependentServiceMethod([], ['sessions'], function (sessionssink, authenticatedobj, session, defer) {
-    qlib.promise2defer(sessionssink.call('create', {session:session, username: authenticatedobj.name}), defer);
+    if (!lib.isArray(this.profileFields)) {
+      return q.reject(new lib.Error('ALREADY_DESTROYED', 'This instance of '+this.constructor.name+' is already destroyed'));
+    }
+    var cobj = this.profileFields.reduce(fielder.bind(null, authenticatedobj), {});
+    cobj.session = session;
+    cobj.username = authenticatedobj.name;
+    authenticatedobj = null;
+    qlib.promise2defer(sessionssink.call('create', cobj), defer);
   });
   SessionsStrategyServiceMixin.prototype.deleteAuthSessionOnSessionsSink = execSuite.dependentServiceMethod([], ['sessions'], function (sessionssink, session, defer) {
     qlib.promise2defer(sessionssink.call('delete', {op: 'eq', field: 'session', value: session}), defer);
@@ -58,11 +99,11 @@ function createSessionsStrategyServiceMixin (execlib) {
     );
   };
   SessionsStrategyServiceMixin.makeupPropertyHash = function (prophash) {
+    prophash.strategies = prophash.strategies || {};
+    prophash.strategies.sessions = prophash.strategies.sessions || {};
     if (prophash.sessionsDB) {
-      prophash.strategies.sessions = {
-        sinkname: prophash.sessionsDB,
-        identity: {role: 'user', name: 'user'}
-      };
+      prophash.strategies.sessions.sinkname = prophash.sessionsDB;
+      prophash.strategies.sessions.identity = {role: 'user', name: 'user'};
     }
   };
 
