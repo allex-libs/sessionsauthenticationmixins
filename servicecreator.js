@@ -34,14 +34,17 @@ function createSessionsStrategyServiceMixin (execlib) {
   }
 
   function SessionsStrategyServiceMixin (prophash) {
+    var hassessionsstrategy;
     if (!lib.isFunction(this.findRemote)) {
       throw new lib.Error('REMOTESERVICELISTNER_MIXIN_NOT_IMPLEMENTED', this.constructor.name+' has to implement execSuite.RemoteServiceListenerServiceMixin');
     }
-    this.sessionsSinkName = prophash.sessionsDB || prophash.strategies.sessions.sinkname;
+    hassessionsstrategy = prophash && prophash.strategies && prophash.strategies.sessions;
+    this.sessionsSinkName = prophash.sessionsDB || 
+      (hassessionsstrategy ? prophash.strategies.sessions.sinkname : null);
     if (this.sessionsSinkName) {
       this.findRemote(this.sessionsSinkName, null, 'sessions');
     }
-    this.profileFields = areOkAdditionalFields(prophash.strategies.sessions.profile_fields);
+    this.profileFields = areOkAdditionalFields(hassessionsstrategy ? prophash.strategies.sessions.profile_fields : null);
   }
 
   SessionsStrategyServiceMixin.prototype.destroy = function () {
@@ -99,9 +102,9 @@ function createSessionsStrategyServiceMixin (execlib) {
     );
   };
   SessionsStrategyServiceMixin.makeupPropertyHash = function (prophash) {
-    prophash.strategies = prophash.strategies || {};
-    prophash.strategies.sessions = prophash.strategies.sessions || {};
     if (prophash.sessionsDB) {
+      prophash.strategies = prophash.strategies || {};
+      prophash.strategies.sessions = prophash.strategies.sessions || {};
       prophash.strategies.sessions.sinkname = prophash.sessionsDB;
       prophash.strategies.sessions.identity = {role: 'user', name: 'user'};
     }
